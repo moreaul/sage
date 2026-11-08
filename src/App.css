@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@plugin "../hero.ts";
+
+/* Où scanner les classes (Tailwind v4) */
+@source "./**/*.{html,js,jsx,ts,tsx}";
+@source "../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
+@custom-variant dark (&:is(.dark *));
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  /* fond du thème courant (voir hero.ts), visible pendant le chargement */
+  background-color: hsl(var(--heroui-background));
+}
+
+/* Barres de défilement comme dans l'ancienne version : fines, arrondies, grises */
+:root {
+  --sage-scrollbar: #8c8c8c;
+}
+.dark {
+  --sage-scrollbar: #696969;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--sage-scrollbar);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* PAS de styles globaux sur button/input/a/etc.
+   HeroUI gère pour ses composants, et Tailwind pour le reste. */

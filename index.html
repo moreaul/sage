@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/feuille.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sage</title>
+    <!-- Applique le thème enregistré avant le premier affichage (évite un flash de l'autre thème).
+         Même clé que src/theme.ts. -->
+    <script>
+      try {
+        if (localStorage.getItem("sage-theme") === "light") {
+          document.documentElement.classList.replace("dark", "light");
+        }
+      } catch (e) {}
+    </script>
+  </head>
+
+  <body class="bg-background text-foreground">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
