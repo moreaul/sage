@@ -2,6 +2,7 @@ import {useState} from "react";
 import {SearchContainer} from "@/src/components/SearchContainer.tsx";
 import {BackupSection} from "@/src/components/sidebar/BackupSection.tsx";
 import {ThemeSwitch} from "@/src/components/sidebar/ThemeSwitch.tsx";
+import {UpdateSection} from "@/src/components/sidebar/UpdateSection.tsx";
 
 export default function NewApp() {
   // Incrémenté après un import : change la key de SearchContainer, qui est remonté
@@ -25,6 +26,7 @@ export default function NewApp() {
         <div className="flex flex-col gap-6">
           <BackupSection onImported={() => setDataVersion((v) => v + 1)} />
           <ThemeSwitch />
+          <UpdateSection />
         </div>
       </aside>
 

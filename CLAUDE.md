@@ -50,3 +50,10 @@ There is no test suite or linter configured in this repo currently.
 - Sidebar `BackupSection` exports/imports all data as a JSON file (`src/database/backupRepository.ts`: `exportBackup`, `parseBackup`, `importBackup`). File dialogs come from `@tauri-apps/plugin-dialog`; the file is read/written by the Rust commands `write_backup_file` / `read_backup_file` in `lib.rs` (no fs plugin).
 - `parseBackup` validates everything (types, duplicate keys, references) before any write. `importBackup` replaces all data in **one** multi-statement `execute` (`BEGIN … INSERT OR ROLLBACK … COMMIT`) so it runs on a single pooled connection and is all-or-nothing; values are inlined as escaped SQL literals because a multi-statement script can't take bind params.
 - **When the schema changes**, update the backup too: bump `BACKUP_FORMAT_VERSION`, export/import the new columns, and convert older versions in `parseBackup` so existing backup files stay importable.
+
+### Releases & auto-update
+
+- The app updates itself via `tauri-plugin-updater` (+ `tauri-plugin-process` for relaunch). `src/components/sidebar/UpdateSection.tsx` checks silently at startup (skipped in dev), offers a manual check, and shows the install modal. Endpoint: `https://github.com/moreaul/sage/releases/latest/download/latest.json` (repo must stay public); `plugins.updater.pubkey` in `tauri.conf.json` must match the signing key.
+- Single version source: `package.json` (`tauri.conf.json` has `"version": "../package.json"`; `Cargo.toml`'s version is unused).
+- To release: `npm version patch|minor` (bumps, commits and tags `vX.Y.Z`), then `git push --follow-tags`. `.github/workflows/release.yml` (tauri-action, `windows-latest`, NSIS only) builds, signs with the `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repo secrets and publishes the Release with `latest.json`.
+- The private key (`~/.tauri/sage.key`) must never be lost or committed: without it, installed apps can no longer be updated.

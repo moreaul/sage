@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "sage",
-  "version": "0.1.0",
+  "productName": "Sage",
+  "version": "../package.json",
   "identifier": "com.lino.sage",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -23,13 +23,27 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERFQkI4QjAxMEZFOTA4QTQKUldTa0NPa1BBWXU3M2dxWG8rS1Fyd1JBa0JOTGo0bDFNVU9sY2FZdU8xUjZyME1XMWJKcUdyTXMK",
+      "endpoints": [
+        "https://github.com/moreaul/sage/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
