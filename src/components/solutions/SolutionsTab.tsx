@@ -2,6 +2,7 @@ import {useCallback, useEffect, useMemo, useState} from "react";
 import ResultsContainer, {ResultItem} from "@/src/components/ResultsContainer.tsx";
 import {ConfirmDeleteModal} from "@/src/components/ConfirmDeleteModal.tsx";
 import {SolutionIcon} from "@/src/components/solutionIcons.tsx";
+import {solutionColor} from "@/src/components/solutionColors.ts";
 import {SolutionFormModal} from "@/src/components/solutions/SolutionFormModal.tsx";
 import {SolutionViewModal} from "@/src/components/solutions/SolutionViewModal.tsx";
 import {deleteTreatmentType, getAllTreatmentTypes} from "@/src/database/treatmentTypeRepository.ts";
@@ -39,12 +40,16 @@ export function SolutionsTab() {
     () =>
       solutions
         .filter((s) => matchesSearch(search, s.name))
-        .map((s) => ({
-          id: s.id,
-          title: s.name,
-          leading: <SolutionIcon icon={s.icon} size={22} />,
-          subtitle: countLabel(s.treatmentCount, "traitement"),
-        })),
+        .map((s) => {
+          const color = solutionColor(s.color);
+          return {
+            id: s.id,
+            title: s.name,
+            leading: <SolutionIcon icon={s.icon} size={22} />,
+            leadingClassName: `${color.bg} ${color.text} ${color.hover}`,
+            subtitle: countLabel(s.treatmentCount, "traitement"),
+          };
+        }),
     [solutions, search],
   );
 

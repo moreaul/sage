@@ -3,9 +3,18 @@ import ResultsContainer, {ResultItem} from "@/src/components/ResultsContainer.ts
 import {ConfirmDeleteModal} from "@/src/components/ConfirmDeleteModal.tsx";
 import {SolutionChip} from "@/src/components/SolutionChip.tsx";
 import {TreatmentFormModal} from "@/src/components/treatments/TreatmentFormModal.tsx";
-import {TreatmentViewModal} from "@/src/components/treatments/TreatmentViewModal.tsx";
+import {DetailModal, DetailTarget} from "@/src/components/DetailModal.tsx";
+import {
+  countActiveFilters,
+  EMPTY_TREATMENT_FILTERS,
+  matchesTreatmentFilters,
+  TreatmentFilters,
+  TreatmentFilterState,
+} from "@/src/components/treatments/TreatmentFilters.tsx";
 import {countTreatmentLinks, deleteTreatment, getAllTreatments} from "@/src/database/treatmentRepository.ts";
+import {getAllTreatmentTypes} from "@/src/database/treatmentTypeRepository.ts";
 import {Treatment} from "@/src/model/treatment.ts";
+import {TreatmentType} from "@/src/model/treatmentType.ts";
 import {matchesSearch} from "@/src/utils/search.ts";
 import {countLabel} from "@/src/utils/format.ts";
 import {notifyError, notifySuccess} from "@/src/utils/notify.ts";
@@ -17,15 +26,19 @@ export function TreatmentsTab() {
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [solutions, setSolutions] = useState<TreatmentType[]>([]);
+  const [filters, setFilters] = useState<TreatmentFilterState>(EMPTY_TREATMENT_FILTERS);
 
-  const [viewing, setViewing] = useState<Treatment | null>(null);
+  const [viewing, setViewing] = useState<DetailTarget | null>(null);
   /** "new" → création, un traitement → modification */
   const [editing, setEditing] = useState<Treatment | "new" | null>(null);
   const [deleting, setDeleting] = useState<PendingDelete | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setTreatments(await getAllTreatments());
+      const [all, types] = await Promise.all([getAllTreatments(), getAllTreatmentTypes()]);
+      setTreatments(all);
+      setSolutions(types);
     } catch (e) {
       notifyError("Impossible de charger les traitements", e);
     } finally {
@@ -40,16 +53,18 @@ export function TreatmentsTab() {
   const items = useMemo<ResultItem[]>(
     () =>
       treatments
-        .filter((t) =>
-          matchesSearch(search, t.name, t.typeName, t.primaryProperty, t.secondaryProperty),
+        .filter(
+          (t) =>
+            matchesTreatmentFilters(t, filters) &&
+            matchesSearch(search, t.name, t.typeName, t.primaryProperty, t.secondaryProperty),
         )
         .map((t) => ({
           id: t.id,
           title: t.name,
-          chip: t.typeName ? <SolutionChip name={t.typeName} icon={t.typeIcon} /> : null,
+          chip: t.typeName ? <SolutionChip name={t.typeName} icon={t.typeIcon} color={t.typeColor} /> : null,
           subtitle: t.primaryProperty,
         })),
-    [treatments, search],
+    [treatments, search, filters],
   );
 
   const find = (id: number) => treatments.find((t) => t.id === id) ?? null;
@@ -86,21 +101,27 @@ export function TreatmentsTab() {
         onSearchChange={setSearch}
         searchPlaceholder="Rechercher un traitement, une solution, une propriété…"
         onNew={() => setEditing("new")}
-        onView={(id) => setViewing(find(id))}
+        onView={(id) => {
+          const t = find(id);
+          if (t) setViewing({kind: "treatment", id: t.id, name: t.name});
+        }}
         onEdit={(id) => setEditing(find(id))}
         onDelete={askDelete}
         emptyMessage="Aucun traitement pour l'instant. Crée-en un avec « Nouveau »."
+        filters={
+          <TreatmentFilters
+            // solutions utilisées par au moins un traitement (+ celles déjà cochées, pour pouvoir les décocher)
+            solutions={solutions.filter((s) => s.treatmentCount > 0 || filters.solutionIds.has(s.id))}
+            value={filters}
+            onChange={setFilters}
+          />
+        }
+        activeFilterCount={countActiveFilters(filters)}
+        onResetFilters={() => setFilters(EMPTY_TREATMENT_FILTERS)}
       />
 
       {viewing && (
-        <TreatmentViewModal
-          treatment={viewing}
-          onClose={() => setViewing(null)}
-          onEdit={() => {
-            setEditing(viewing);
-            setViewing(null);
-          }}
-        />
+        <DetailModal initial={viewing} onClose={() => setViewing(null)} onChanged={load} />
       )}
 
       {editing && (

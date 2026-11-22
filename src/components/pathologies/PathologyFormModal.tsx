@@ -16,6 +16,8 @@ import {FormEvent, useEffect, useMemo, useState} from "react";
 import {SectionTitle} from "@/src/components/DetailField.tsx";
 import {SolutionChip} from "@/src/components/SolutionChip.tsx";
 import {CloseIcon} from "@/src/components/icons.tsx";
+import {APPROACH_KEYS, APPROACHES, ApproachIcon, knownApproach} from "@/src/components/approaches.tsx";
+import {solutionColor} from "@/src/components/solutionColors.ts";
 import {createDisease, updateDisease} from "@/src/database/diseaseRepository.ts";
 import {getCuresForDisease, setCuresForDisease} from "@/src/database/cureRepository.ts";
 import {
@@ -41,12 +43,15 @@ type CureDraft = {
   treatmentName: string;
   typeName: string | null;
   typeIcon: string | null;
+  typeColor: string | null;
   usage: string;
 };
 
 export function PathologyFormModal({disease, onClose, onSaved}: PathologyFormModalProps) {
   const [name, setName] = useState(disease?.name ?? "");
   const [description, setDescription] = useState(disease?.description ?? "");
+  /** clé de l'approche ; une clé inconnue (sauvegarde d'une version plus récente) est conservée */
+  const [approach, setApproach] = useState<string | null>(disease?.approach ?? null);
   const [cures, setCures] = useState<CureDraft[]>([]);
   const [allTreatments, setAllTreatments] = useState<Treatment[]>([]);
   const [interactionPairs, setInteractionPairs] = useState<[number, number][]>([]);
@@ -77,6 +82,7 @@ export function PathologyFormModal({disease, onClose, onSaved}: PathologyFormMod
             treatmentName: c.treatmentName,
             typeName: c.typeName,
             typeIcon: c.typeIcon,
+            typeColor: c.typeColor,
             usage: c.usage ?? "",
           })),
         );
@@ -104,12 +110,15 @@ export function PathologyFormModal({disease, onClose, onSaved}: PathologyFormMod
   const addCure = (treatmentId: number) => {
     const t = allTreatments.find((x) => x.id === treatmentId);
     if (!t) return;
-    setCures((list) => [...list, {treatmentId: t.id, treatmentName: t.name, typeName: t.typeName, typeIcon: t.typeIcon, usage: ""}]);
+    setCures((list) => [...list, {treatmentId: t.id, treatmentName: t.name, typeName: t.typeName, typeIcon: t.typeIcon, typeColor: t.typeColor, usage: ""}]);
     setPickerKey((k) => k + 1);
   };
 
   const updateUsage = (treatmentId: number, usage: string) =>
     setCures((list) => list.map((c) => (c.treatmentId === treatmentId ? {...c, usage} : c)));
+
+  /** approche affichée dans le champ (une clé inconnue n'y apparaît pas, mais reste enregistrée si on n'y touche pas) */
+  const selectedApproach = knownApproach(approach);
 
   const removeCure = (treatmentId: number) =>
     setCures((list) => list.filter((c) => c.treatmentId !== treatmentId));
@@ -123,7 +132,7 @@ export function PathologyFormModal({disease, onClose, onSaved}: PathologyFormMod
 
     setIsSaving(true);
     try {
-      const input = {name, description};
+      const input = {name, description, approach};
       const id = disease ? disease.id : await createDisease(input);
       if (disease) await updateDisease(id, input);
       await setCuresForDisease(id, cures);
@@ -146,17 +155,49 @@ export function PathologyFormModal({disease, onClose, onSaved}: PathologyFormMod
               <Spinner className="py-8" />
             ) : (
               <>
-                <Input
-                  autoFocus
-                  label="Nom"
-                  placeholder="Ex. Acné"
-                  variant="bordered"
-                  value={name}
-                  onValueChange={setName}
-                  isRequired
-                  isInvalid={nameInvalid}
-                  errorMessage="Le nom est obligatoire"
-                />
+                {/* Même disposition que le formulaire de traitement (nom + solution) */}
+                <div className="flex flex-col gap-4 sm:flex-row">
+                  <Input
+                    autoFocus
+                    label="Nom"
+                    placeholder="Ex. Acné"
+                    variant="bordered"
+                    value={name}
+                    onValueChange={setName}
+                    isRequired
+                    isInvalid={nameInvalid}
+                    errorMessage="Le nom est obligatoire"
+                  />
+                  {/* Facultative : la croix du champ la retire. */}
+                  <Autocomplete
+                    label="Approche"
+                    placeholder="Rechercher une approche…"
+                    variant="bordered"
+                    defaultItems={APPROACH_KEYS.map((key) => ({key, ...APPROACHES[key]}))}
+                    selectedKey={selectedApproach}
+                    onSelectionChange={(key) => setApproach(key != null ? String(key) : null)}
+                    startContent={
+                      selectedApproach && (
+                        <ApproachIcon
+                          approach={selectedApproach}
+                          size={18}
+                          className={`shrink-0 ${solutionColor(APPROACHES[selectedApproach].color).text}`}
+                        />
+                      )
+                    }
+                    listboxProps={{emptyContent: "Aucune approche ne correspond."}}
+                  >
+                    {(a) => (
+                      <AutocompleteItem
+                        key={a.key}
+                        textValue={a.label}
+                        startContent={<ApproachIcon approach={a.key} size={18} className={solutionColor(a.color).text} />}
+                      >
+                        {a.label}
+                      </AutocompleteItem>
+                    )}
+                  </Autocomplete>
+                </div>
 
                 <Textarea
                   label="Description"
@@ -182,7 +223,7 @@ export function PathologyFormModal({disease, onClose, onSaved}: PathologyFormMod
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">{c.treatmentName}</span>
                           {c.typeName && (
-                            <SolutionChip name={c.typeName} icon={c.typeIcon} />
+                            <SolutionChip name={c.typeName} icon={c.typeIcon} color={c.typeColor} />
                           )}
                         </div>
                         <Tooltip content="Retirer" delay={400} closeDelay={0}>

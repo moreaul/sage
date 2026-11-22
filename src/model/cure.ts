@@ -7,6 +7,7 @@ export type CureRow = {
   treatment_name?: string;
   type_name?: string | null;
   type_icon?: string | null;
+  type_color?: string | null;
   contraindication?: string | null;
 };
 
@@ -20,6 +21,7 @@ export class Cure {
     public typeName: string | null = null,
     public contraindication: string | null = null,
     public typeIcon: string | null = null,
+    public typeColor: string | null = null,
   ) {}
 
   static fromRow(row: CureRow) {
@@ -32,6 +34,7 @@ export class Cure {
       row.type_name ?? null,
       row.contraindication ?? null,
       row.type_icon ?? null,
+      row.type_color ?? null,
     );
   }
 }

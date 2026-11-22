@@ -8,6 +8,8 @@ export type ResultItem = {
   title: string;
   /** grande icône à gauche de la ligne (ex. l'icône d'une solution) */
   leading?: ReactNode;
+  /** couleurs du carré de `leading` (fond, texte, survol) ; vert de l'application par défaut */
+  leadingClassName?: string;
   /** petite étiquette à côté du titre (ex. la solution d'un traitement) */
   chip?: ReactNode;
   /** ligne secondaire en plus petit sous le titre */
@@ -26,6 +28,10 @@ type ResultsContainerProps = {
   onDelete: (id: number) => void;
   /** message quand la liste est vide sans recherche */
   emptyMessage: ReactNode;
+  /** panneau de filtres (optionnel), déplié par le bouton « Filtres » */
+  filters?: ReactNode;
+  activeFilterCount?: number;
+  onResetFilters?: () => void;
 };
 
 /** Contenu générique d'un onglet : barre de recherche + liste scrollable avec actions. */
@@ -40,7 +46,14 @@ export default function ResultsContainer({
   onEdit,
   onDelete,
   emptyMessage,
+  filters,
+  activeFilterCount = 0,
+  onResetFilters,
 }: ResultsContainerProps) {
+  const query = search.trim();
+  const noResultMessage =
+    `Aucun résultat${query ? ` pour « ${query} »` : ""}${activeFilterCount > 0 ? " avec ces filtres" : ""}`;
+
   return (
     <div className="flex flex-col gap-3 flex-1 h-full min-h-0">
 
@@ -49,18 +62,21 @@ export default function ResultsContainer({
         onSearchChange={onSearchChange}
         onNew={onNew}
         searchPlaceholder={searchPlaceholder}
+        filters={filters}
+        activeFilterCount={activeFilterCount}
+        onResetFilters={onResetFilters}
       />
 
       {/* Liste scrollable */}
       <section className="flex-1 h-full min-h-0 p-3 bg-content2 rounded-xl overflow-hidden">
-        <div className="space-y-3 h-full max-h-full overflow-y-auto pr-2">
+        <div className="space-y-3 h-full max-h-full overflow-y-auto pr-2 pt-0.5">
           {isLoading ? (
             <div className="flex h-full items-center justify-center">
               <Spinner label="Chargement…" />
             </div>
           ) : items.length === 0 ? (
             <div className="flex h-full items-center justify-center text-center text-sm text-foreground/60">
-              {search.trim() ? `Aucun résultat pour « ${search.trim()} »` : emptyMessage}
+              {query || activeFilterCount > 0 ? noResultMessage : emptyMessage}
             </div>
           ) : (
             items.map((item) => (
@@ -91,18 +107,32 @@ function ResultRow({item, onView, onEdit, onDelete}: RowProps) {
   return (
     <div
       className="
+        group/row relative overflow-hidden
         flex items-center justify-between gap-4
         bg-content1
         rounded-lg px-4 py-3
-        hover:bg-content1/60
-        transition-colors
+        border border-transparent
+        hover:border-primary/35 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/15
+        transition-[translate,border-color,box-shadow] duration-200 ease-out
         cursor-pointer
       "
       onClick={onView}
     >
+      {/* Barre verte « marque-page » qui se déploie depuis le centre au survol */}
+      <span
+        aria-hidden
+        className="
+          pointer-events-none absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-primary
+          scale-y-0 group-hover/row:scale-y-100 transition-transform duration-200 ease-out
+        "
+      />
       <div className="flex min-w-0 items-center gap-3">
         {item.leading && (
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+          <div
+            className={`flex size-10 shrink-0 items-center justify-center rounded-lg transition-[scale,background-color] duration-200 ease-out group-hover/row:scale-110 ${
+              item.leadingClassName ?? "bg-primary/15 text-primary group-hover/row:bg-primary/25"
+            }`}
+          >
             {item.leading}
           </div>
         )}

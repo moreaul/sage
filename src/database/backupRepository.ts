@@ -5,13 +5,16 @@ import { getDb } from "@/src/database/db";
  * telles quelles. Si le schéma évolue, incrémenter BACKUP_FORMAT_VERSION et convertir
  * les anciennes versions dans parseBackup pour que les vieilles sauvegardes restent importables.
  */
-export const BACKUP_FORMAT_VERSION = 3;
+export const BACKUP_FORMAT_VERSION = 6;
 // Historique :
 //  1 — format initial
 //  2 — ajout de diseases[].description (absente dans un fichier v1 → NULL)
 //  3 — ajout de treatmentTypes[].icon (absente avant → NULL, icône par défaut)
+//  4 — ajout de treatmentTypes[].color (absente avant → NULL, couleur par défaut)
+//  5 — ajout de diseaseApproaches (plusieurs approches par pathologie ; absente avant → aucune)
+//  6 — une seule approche : diseases[].approach remplace diseaseApproaches (v5 → première approche)
 
-type TreatmentTypeBackup = { id_type: number; name: string; icon: string | null };
+type TreatmentTypeBackup = { id_type: number; name: string; icon: string | null; color: string | null };
 type TreatmentBackup = {
   id_treatment: number;
   name: string;
@@ -21,7 +24,7 @@ type TreatmentBackup = {
   id_type: number;
   description: string | null;
 };
-type DiseaseBackup = { id_disease: number; name: string; description: string | null };
+type DiseaseBackup = { id_disease: number; name: string; description: string | null; approach: string | null };
 type CureBackup = { id_disease: number; id_treatment: number; usage: string | null };
 type InteractionBackup = { id_treatment: number; id_treatment_1: number };
 
@@ -48,12 +51,12 @@ export type BackupFile = {
 export async function exportBackup(): Promise<BackupFile> {
   const db = getDb();
   const [treatmentTypes, treatments, diseases, cures, interactions] = await Promise.all([
-    db.select<TreatmentTypeBackup[]>("SELECT id_type, name, icon FROM Treatment_type ORDER BY id_type"),
+    db.select<TreatmentTypeBackup[]>("SELECT id_type, name, icon, color FROM Treatment_type ORDER BY id_type"),
     db.select<TreatmentBackup[]>(
       `SELECT id_treatment, name, primary_property, secondary_property, contraindication, id_type, description
          FROM Treatment ORDER BY id_treatment`,
     ),
-    db.select<DiseaseBackup[]>("SELECT id_disease, name, description FROM Disease ORDER BY id_disease"),
+    db.select<DiseaseBackup[]>("SELECT id_disease, name, description, approach FROM Disease ORDER BY id_disease"),
     db.select<CureBackup[]>("SELECT id_disease, id_treatment, usage FROM cure ORDER BY id_disease, id_treatment"),
     db.select<InteractionBackup[]>(
       "SELECT id_treatment, id_treatment_1 FROM interaction ORDER BY id_treatment, id_treatment_1",
@@ -145,6 +148,8 @@ export function parseBackup(text: string): BackupFile {
       name: readName(r, where),
       // absente avant la v3 → null (icône par défaut)
       icon: readOptionalText(r, "icon", where),
+      // absente avant la v4 → null (couleur par défaut)
+      color: readOptionalText(r, "color", where),
     };
   });
 
@@ -161,13 +166,29 @@ export function parseBackup(text: string): BackupFile {
     };
   });
 
+  // v5 : approches dans une liste à part (plusieurs par pathologie) → on garde la première (ordre alphabétique,
+  // comme la migration 12). Les clés inconnues de cette version sont conservées (version plus récente).
+  const v5Approaches = new Map<number, string>();
+  if (raw.diseaseApproaches !== undefined) {
+    readArray(raw, "diseaseApproaches").forEach((r, i) => {
+      const where = `Approche de pathologie n°${i + 1}`;
+      const id = readId(r, "id_disease", where);
+      const approach = readOptionalText(r, "approach", where);
+      const current = v5Approaches.get(id);
+      if (approach && (current === undefined || approach < current)) v5Approaches.set(id, approach);
+    });
+  }
+
   const diseases = readArray(raw, "diseases").map((r, i) => {
     const where = `Pathologie n°${i + 1}`;
+    const id_disease = readId(r, "id_disease", where);
     return {
-      id_disease: readId(r, "id_disease", where),
+      id_disease,
       name: readName(r, where),
       // absente des fichiers v1 → null
       description: readOptionalText(r, "description", where),
+      // absente avant la v6 → approche du fichier v5, sinon null
+      approach: readOptionalText(r, "approach", where) ?? v5Approaches.get(id_disease) ?? null,
     };
   });
 
@@ -254,13 +275,13 @@ export async function importBackup(backup: BackupFile): Promise<void> {
     "DELETE FROM Treatment;",
     "DELETE FROM Disease;",
     "DELETE FROM Treatment_type;",
-    insert("Treatment_type", ["id_type", "name", "icon"], treatmentTypes),
+    insert("Treatment_type", ["id_type", "name", "icon", "color"], treatmentTypes),
     insert(
       "Treatment",
       ["id_treatment", "name", "primary_property", "secondary_property", "contraindication", "id_type", "description"],
       treatments,
     ),
-    insert("Disease", ["id_disease", "name", "description"], diseases),
+    insert("Disease", ["id_disease", "name", "description", "approach"], diseases),
     insert("cure", ["id_disease", "id_treatment", "usage"], cures),
     insert("interaction", ["id_treatment", "id_treatment_1"], interactions),
     "COMMIT;",

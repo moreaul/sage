@@ -9,6 +9,13 @@ import {
   SolutionIconKey,
   suggestSolutionIcon,
 } from "@/src/components/solutionIcons.tsx";
+import {
+  DEFAULT_SOLUTION_COLOR,
+  isSolutionColorKey,
+  SOLUTION_COLOR_KEYS,
+  SOLUTION_COLORS,
+  SolutionColorKey,
+} from "@/src/components/solutionColors.ts";
 import {createTreatmentType, updateTreatmentType} from "@/src/database/treatmentTypeRepository.ts";
 import {TreatmentType} from "@/src/model/treatmentType.ts";
 import {notifyError, notifySuccess} from "@/src/utils/notify.ts";
@@ -24,6 +31,9 @@ export function SolutionFormModal({solution, onClose, onSaved}: SolutionFormModa
   const [name, setName] = useState(solution?.name ?? "");
   const [icon, setIcon] = useState<SolutionIconKey>(
     isSolutionIconKey(solution?.icon) ? solution.icon : DEFAULT_SOLUTION_ICON,
+  );
+  const [color, setColor] = useState<SolutionColorKey>(
+    isSolutionColorKey(solution?.color) ? solution.color : DEFAULT_SOLUTION_COLOR,
   );
   /**
    * Tant que l'utilisateur n'a pas choisi d'icône lui-même, on la propose d'après le nom
@@ -52,7 +62,7 @@ export function SolutionFormModal({solution, onClose, onSaved}: SolutionFormModa
 
     setIsSaving(true);
     try {
-      const input = {name, icon};
+      const input = {name, icon, color};
       if (solution) {
         await updateTreatmentType(solution.id, input);
       } else {
@@ -75,7 +85,9 @@ export function SolutionFormModal({solution, onClose, onSaved}: SolutionFormModa
           <ModalBody className="gap-4">
             <div className="flex items-start gap-3">
               {/* aperçu de l'icône choisie */}
-              <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+              <div
+                className={`flex size-14 shrink-0 items-center justify-center rounded-xl transition-colors ${SOLUTION_COLORS[color].bg} ${SOLUTION_COLORS[color].text}`}
+              >
                 <SolutionIcon icon={icon} size={30} />
               </div>
               <Input
@@ -89,6 +101,29 @@ export function SolutionFormModal({solution, onClose, onSaved}: SolutionFormModa
                 isInvalid={nameInvalid}
                 errorMessage="Le nom est obligatoire"
               />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-sm text-foreground/80">Couleur de la pastille</span>
+              <div role="radiogroup" aria-label="Couleur de la pastille" className="flex flex-wrap gap-2">
+                {SOLUTION_COLOR_KEYS.map((key) => {
+                  const selected = key === color;
+                  return (
+                    <Tooltip key={key} content={SOLUTION_COLORS[key].label} delay={300} closeDelay={0}>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        aria-label={SOLUTION_COLORS[key].label}
+                        onClick={() => setColor(key)}
+                        className={`size-8 cursor-pointer rounded-full ${SOLUTION_COLORS[key].swatch} transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                          selected ? "ring-2 ring-foreground ring-offset-2 ring-offset-content1" : ""
+                        }`}
+                      />
+                    </Tooltip>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="flex flex-col gap-2">

@@ -107,3 +107,17 @@ export const RefreshIcon = (props: IconProps) => (
     <path d="M3 21v-5h5" />
   </BaseIcon>
 );
+
+/** Chevron vers la gauche (replier la barre latérale) ; pivoter de 180° pour déplier. */
+export const ChevronLeftIcon = (props: IconProps) => (
+  <BaseIcon {...props}>
+    <path d="M15 18l-6-6 6-6" />
+  </BaseIcon>
+);
+
+/** Entonnoir (bouton « Filtres »). */
+export const FilterIcon = (props: IconProps) => (
+  <BaseIcon {...props}>
+    <path d="M3.5 4.5h17l-6.5 8v6l-4 2v-8z" />
+  </BaseIcon>
+);

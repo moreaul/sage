@@ -25,7 +25,9 @@ export default defineConfig(async () => ({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
+    // Adresse IPv4 explicite : sinon Vite n'écoute que sur ::1 et la WebView (qui résout
+    // localhost en 127.0.0.1) affiche une page blanche. Doit correspondre à devUrl.
+    host: host || "127.0.0.1",
     hmr: host
       ? {
           protocol: "ws",

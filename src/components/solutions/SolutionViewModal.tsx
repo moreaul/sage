@@ -2,6 +2,7 @@ import {Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Spinne
 import {useEffect, useState} from "react";
 import {SectionTitle} from "@/src/components/DetailField.tsx";
 import {SolutionIcon} from "@/src/components/solutionIcons.tsx";
+import {solutionColor} from "@/src/components/solutionColors.ts";
 import {getTreatmentsByType} from "@/src/database/treatmentRepository.ts";
 import {Treatment} from "@/src/model/treatment.ts";
 import {TreatmentType} from "@/src/model/treatmentType.ts";
@@ -29,7 +30,9 @@ export function SolutionViewModal({solution, onClose, onEdit}: SolutionViewModal
     <Modal isOpen onClose={onClose} size="lg" scrollBehavior="inside" backdrop="blur">
       <ModalContent>
         <ModalHeader className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+          <div
+            className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${solutionColor(solution.color).bg} ${solutionColor(solution.color).text}`}
+          >
             <SolutionIcon icon={solution.icon} size={22} />
           </div>
           {solution.name}

@@ -1,4 +1,6 @@
 import {
+  Autocomplete,
+  AutocompleteItem,
   Button,
   Chip,
   Input,
@@ -7,12 +9,10 @@ import {
   ModalContent,
   ModalFooter,
   ModalHeader,
-  Select,
-  SelectItem,
   Spinner,
   Textarea,
 } from "@heroui/react";
-import {FormEvent, useEffect, useState} from "react";
+import {FormEvent, useEffect, useMemo, useState} from "react";
 import {
   createTreatment,
   getAllTreatments,
@@ -22,6 +22,7 @@ import {
 } from "@/src/database/treatmentRepository.ts";
 import {getAllTreatmentTypes} from "@/src/database/treatmentTypeRepository.ts";
 import {SolutionIcon} from "@/src/components/solutionIcons.tsx";
+import {solutionColor} from "@/src/components/solutionColors.ts";
 import {Treatment, TreatmentInput} from "@/src/model/treatment.ts";
 import {TreatmentType} from "@/src/model/treatmentType.ts";
 import {notifyError, notifySuccess} from "@/src/utils/notify.ts";
@@ -46,6 +47,8 @@ export function TreatmentFormModal({treatment, onClose, onSaved}: TreatmentFormM
 
   const [solutions, setSolutions] = useState<TreatmentType[]>([]);
   const [otherTreatments, setOtherTreatments] = useState<Treatment[]>([]);
+  /** incrémenté après chaque ajout d'interaction pour vider le champ de recherche */
+  const [pickerKey, setPickerKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -71,6 +74,25 @@ export function TreatmentFormModal({treatment, onClose, onSaved}: TreatmentFormM
 
   const set = <K extends keyof TreatmentInput>(key: K) => (value: TreatmentInput[K]) =>
     setForm((f) => ({...f, [key]: value}));
+
+  const selectedSolution = solutions.find((s) => s.id === form.typeId) ?? null;
+  const interactionList = otherTreatments.filter((t) => interactionIds.has(String(t.id)));
+  /** Traitements pas encore marqués en interaction, proposés dans le champ d'ajout. */
+  const availableInteractions = useMemo(
+    () => otherTreatments.filter((t) => !interactionIds.has(String(t.id))),
+    [otherTreatments, interactionIds],
+  );
+
+  const addInteraction = (id: number) => {
+    setInteractionIds((ids) => new Set(ids).add(String(id)));
+    setPickerKey((k) => k + 1);
+  };
+  const removeInteraction = (id: number) =>
+    setInteractionIds((ids) => {
+      const next = new Set(ids);
+      next.delete(String(id));
+      return next;
+    });
 
   const nameInvalid = submitted && !form.name.trim();
   const typeInvalid = submitted && !form.typeId;
@@ -116,16 +138,24 @@ export function TreatmentFormModal({treatment, onClose, onSaved}: TreatmentFormM
                     isInvalid={nameInvalid}
                     errorMessage="Le nom est obligatoire"
                   />
-                  <Select
+                  <Autocomplete
                     label="Solution"
-                    placeholder={solutions.length ? "Choisir…" : "Aucune solution"}
+                    placeholder={solutions.length ? "Rechercher une solution…" : "Aucune solution"}
                     variant="bordered"
                     isRequired
-                    selectedKeys={form.typeId ? [String(form.typeId)] : []}
-                    onSelectionChange={(keys) => {
-                      const key = keys === "all" ? undefined : [...keys][0];
-                      set("typeId")(key ? Number(key) : 0);
-                    }}
+                    defaultItems={solutions}
+                    selectedKey={form.typeId ? String(form.typeId) : null}
+                    onSelectionChange={(key) => set("typeId")(key != null ? Number(key) : 0)}
+                    startContent={
+                      selectedSolution && (
+                        <SolutionIcon
+                          icon={selectedSolution.icon}
+                          size={18}
+                          className={`shrink-0 ${solutionColor(selectedSolution.color).text}`}
+                        />
+                      )
+                    }
+                    listboxProps={{emptyContent: "Aucune solution ne correspond."}}
                     isInvalid={typeInvalid}
                     errorMessage="Choisis une solution"
                     description={
@@ -134,10 +164,16 @@ export function TreatmentFormModal({treatment, onClose, onSaved}: TreatmentFormM
                         : undefined
                     }
                   >
-                    {solutions.map((s) => (
-                      <SelectItem key={String(s.id)} startContent={<SolutionIcon icon={s.icon} size={18} className="text-primary" />}>{s.name}</SelectItem>
-                    ))}
-                  </Select>
+                    {(s) => (
+                      <AutocompleteItem
+                        key={String(s.id)}
+                        textValue={s.name}
+                        startContent={<SolutionIcon icon={s.icon} size={18} className={solutionColor(s.color).text} />}
+                      >
+                        {s.name}
+                      </AutocompleteItem>
+                    )}
+                  </Autocomplete>
                 </div>
 
                 <Textarea
@@ -169,39 +205,48 @@ export function TreatmentFormModal({treatment, onClose, onSaved}: TreatmentFormM
                   onValueChange={set("description")}
                 />
 
-                <Select
-                  label="Interactions"
-                  placeholder={otherTreatments.length ? "Traitements à ne pas associer" : "Aucun autre traitement"}
-                  description="Traitements incompatibles avec celui-ci (la relation vaut dans les deux sens)."
-                  variant="bordered"
-                  selectionMode="multiple"
-                  isMultiline
-                  isDisabled={otherTreatments.length === 0}
-                  selectedKeys={interactionIds}
-                  onSelectionChange={(keys) =>
-                    setInteractionIds(
-                      keys === "all"
-                        ? new Set(otherTreatments.map((t) => String(t.id)))
-                        : new Set([...keys].map(String)),
-                    )
-                  }
-                  renderValue={(items) => (
-                    <div className="flex flex-wrap gap-1 py-1">
-                      {items.map((item) => (
-                        <Chip key={item.key} size="sm" variant="flat" color="warning">
-                          {item.textValue}
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm text-foreground/80">Interactions</span>
+                  {interactionList.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {interactionList.map((t) => (
+                        <Chip
+                          key={t.id}
+                          size="sm"
+                          variant="flat"
+                          color="warning"
+                          onClose={() => removeInteraction(t.id)}
+                        >
+                          {t.name}
                         </Chip>
                       ))}
                     </div>
                   )}
-                >
-                  {otherTreatments.map((t) => (
-                    <SelectItem key={String(t.id)} textValue={t.name}>
-                      {t.name}
-                      {t.typeName && <span className="ml-2 text-xs text-foreground/50">{t.typeName}</span>}
-                    </SelectItem>
-                  ))}
-                </Select>
+                  <Autocomplete
+                    key={`${pickerKey}-${availableInteractions.length}`}
+                    aria-label="Ajouter une interaction"
+                    placeholder={
+                      otherTreatments.length === 0
+                        ? "Aucun autre traitement"
+                        : "Rechercher un traitement à ne pas associer…"
+                    }
+                    description="Traitements incompatibles avec celui-ci (la relation vaut dans les deux sens)."
+                    variant="bordered"
+                    isDisabled={availableInteractions.length === 0}
+                    defaultItems={availableInteractions}
+                    listboxProps={{emptyContent: "Aucun traitement ne correspond."}}
+                    onSelectionChange={(key) => {
+                      if (key != null) addInteraction(Number(key));
+                    }}
+                  >
+                    {(t) => (
+                      <AutocompleteItem key={String(t.id)} textValue={t.name}>
+                        {t.name}
+                        {t.typeName && <span className="ml-2 text-xs text-foreground/50">{t.typeName}</span>}
+                      </AutocompleteItem>
+                    )}
+                  </Autocomplete>
+                </div>
               </>
             )}
           </ModalBody>

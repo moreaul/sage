@@ -2,18 +2,31 @@ import { getDb } from "@/src/database/db";
 import { Treatment, TreatmentInput, TreatmentRow } from "@/src/model/treatment";
 
 const SELECT_TREATMENT = `
-  SELECT t.*, ty.name AS type_name, ty.icon AS type_icon
+  SELECT t.*, ty.name AS type_name, ty.icon AS type_icon, ty.color AS type_color
     FROM Treatment t
     LEFT JOIN Treatment_type ty ON ty.id_type = t.id_type`;
 
 /** Chaîne vide → NULL, pour ne pas stocker de champs vides. */
 const orNull = (value: string) => value.trim() || null;
 
+/** Tous les traitements, avec le nombre de pathologies et d'interactions de chacun (pour les filtres). */
 export async function getAllTreatments(): Promise<Treatment[]> {
   const rows = await getDb().select<TreatmentRow[]>(
-    `${SELECT_TREATMENT} ORDER BY t.name COLLATE NOCASE`,
+    `SELECT t.*, ty.name AS type_name, ty.icon AS type_icon, ty.color AS type_color,
+            (SELECT COUNT(*) FROM cure c WHERE c.id_treatment = t.id_treatment) AS cure_count,
+            (SELECT COUNT(*) FROM interaction i
+              WHERE i.id_treatment = t.id_treatment OR i.id_treatment_1 = t.id_treatment) AS interaction_count
+       FROM Treatment t
+       LEFT JOIN Treatment_type ty ON ty.id_type = t.id_type
+      ORDER BY t.name COLLATE NOCASE`,
   );
   return rows.map(Treatment.fromRow);
+}
+
+/** Un traitement par son id, ou null s'il n'existe plus. */
+export async function getTreatmentById(id: number): Promise<Treatment | null> {
+  const rows = await getDb().select<TreatmentRow[]>(`${SELECT_TREATMENT} WHERE t.id_treatment = $1`, [id]);
+  return rows.length ? Treatment.fromRow(rows[0]) : null;
 }
 
 /** Traitements rattachés à une solution (Treatment_type). */

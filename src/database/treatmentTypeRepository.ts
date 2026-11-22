@@ -4,7 +4,7 @@ import { TreatmentType, TreatmentTypeInput, TreatmentTypeRow } from "@/src/model
 /** Toutes les solutions, avec le nombre de traitements de chacune. */
 export async function getAllTreatmentTypes(): Promise<TreatmentType[]> {
   const rows = await getDb().select<TreatmentTypeRow[]>(
-    `SELECT ty.id_type, ty.name, ty.icon, COUNT(t.id_treatment) AS treatment_count
+    `SELECT ty.id_type, ty.name, ty.icon, ty.color, COUNT(t.id_treatment) AS treatment_count
        FROM Treatment_type ty
        LEFT JOIN Treatment t ON t.id_type = ty.id_type
       GROUP BY ty.id_type
@@ -16,16 +16,16 @@ export async function getAllTreatmentTypes(): Promise<TreatmentType[]> {
 /** Crée une solution et renvoie son id. */
 export async function createTreatmentType(input: TreatmentTypeInput): Promise<number> {
   const result = await getDb().execute(
-    "INSERT INTO Treatment_type (name, icon) VALUES ($1, $2)",
-    [input.name.trim(), input.icon],
+    "INSERT INTO Treatment_type (name, icon, color) VALUES ($1, $2, $3)",
+    [input.name.trim(), input.icon, input.color],
   );
   return result.lastInsertId as number;
 }
 
 export async function updateTreatmentType(id: number, input: TreatmentTypeInput): Promise<void> {
   await getDb().execute(
-    "UPDATE Treatment_type SET name = $1, icon = $2 WHERE id_type = $3",
-    [input.name.trim(), input.icon, id],
+    "UPDATE Treatment_type SET name = $1, icon = $2, color = $3 WHERE id_type = $4",
+    [input.name.trim(), input.icon, input.color, id],
   );
 }
 

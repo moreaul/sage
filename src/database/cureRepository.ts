@@ -5,7 +5,7 @@ import { Cure, CureRow } from "@/src/model/cure";
 export async function getCuresForDisease(diseaseId: number): Promise<Cure[]> {
   const rows = await getDb().select<CureRow[]>(
     `SELECT c.id_disease, c.id_treatment, c.usage,
-            t.name AS treatment_name, t.contraindication, ty.name AS type_name, ty.icon AS type_icon
+            t.name AS treatment_name, t.contraindication, ty.name AS type_name, ty.icon AS type_icon, ty.color AS type_color
        FROM cure c
        JOIN Treatment t ON t.id_treatment = c.id_treatment
        LEFT JOIN Treatment_type ty ON ty.id_type = t.id_type
